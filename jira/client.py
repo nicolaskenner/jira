@@ -1189,26 +1189,23 @@ class JIRA(object):
                 "Group members is not implemented in JIRA before version 6.0, upgrade the instance, if possible."
             )
 
-        params = {"groupname": group, "expand": "users"}
-        r = self._get_json("group", params=params)
-        size = r["users"]["size"]
-        end_index = r["users"]["end-index"]
+        params = {"groupname": group}
+        r = self._get_json("group/member", params=params)
+        size = r["total"]
+        is_last = r["isLast"]
+        start_at = size
 
-        while end_index < size - 1:
-            params = {
-                "groupname": group,
-                "expand": "users[%s:%s]" % (end_index + 1, end_index + 50),
-            }
-            r2 = self._get_json("group", params=params)
-            for user in r2["users"]["items"]:
-                r["users"]["items"].append(user)
-            end_index = r2["users"]["end-index"]
-            size = r["users"]["size"]
+        while not is_last:
+            params = {"groupname": group, "startAt": start_at}
+            r2 = self._get_json("group/member", params=params)
+            for user in r2["values"]:
+                r["values"].append(user)
+            start_at += r2['total']
 
         result = {}
-        for user in r["users"]["items"]:
-            result[user["key"]] = {
-                "name": user["name"],
+        for user in r["values"]:
+            result[user["accountId"]] = {
+                "name": user.get("name"),
                 "fullname": user["displayName"],
                 "email": user.get("emailAddress", "hidden"),
                 "active": user["active"],
